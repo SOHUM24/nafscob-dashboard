@@ -1,14 +1,12 @@
-import subprocess, sys
-
-# Core
-subprocess.run([sys.executable, '-m', 'pip', 'install', 'pandas', 'openpyxl', 'pdfplumber', 'numpy', '--quiet'])
-
-# Optional (better table extraction in many PDFs). If this fails, we will auto-fallback.
-# On Windows, Camelot may require extra system deps (Ghostscript). That's OK—fallback still works.
-subprocess.run([sys.executable, '-m', 'pip', 'install', 'camelot-py', 'opencv-python', '--quiet'])
-
-
+import os
+import subprocess
 import sys
+
+# Skip runtime pip installs on Render/production (deps come from requirements.txt)
+if not os.environ.get('RENDER') and not os.environ.get('PORT'):
+    subprocess.run([sys.executable, '-m', 'pip', 'install', 'pandas', 'openpyxl', 'pdfplumber', 'numpy', '--quiet'], check=False)
+    subprocess.run([sys.executable, '-m', 'pip', 'install', 'camelot-py', 'opencv-python', '--quiet'], check=False)
+
 PDF_FOLDER = sys.argv[1]
 OUTPUT_FILE = sys.argv[2]
 YEAR_MIN, YEAR_MAX = 2000, 2099
@@ -326,7 +324,7 @@ print('PIVOT_ENTITY_YEAR:', PIVOT_ENTITY_YEAR.shape)
 
 # ── Write the workbook ────────────────────────────────────────────────────────
 
-out_path = str(Path(PDF_FOLDER) / OUTPUT_FILE)
+out_path = OUTPUT_FILE if os.path.isabs(OUTPUT_FILE) else str(Path(PDF_FOLDER) / OUTPUT_FILE)
 
 wb = Workbook()
 ws0 = wb.active
@@ -365,20 +363,7 @@ for name in wb_check.sheetnames:
 wb_check.close()
 print('✅ Verification complete.')
 
-# Quick preview: top metrics and entities
-
-display(TABLE_INDEX.head(10))
-
-display(TIDY.head(20))
-
-# Most common metrics captured
+# CLI mode — no Jupyter display()
 if not TIDY.empty:
-    display(TIDY['metric'].value_counts().head(25))
-
-# Quick preview: YoY biggest changes (absolute)
-if not YOY.empty:
-    top_moves = YOY.dropna(subset=['delta']).sort_values('delta', ascending=False).head(20)
-    display(top_moves)
-else:
-    print('YOY is empty — likely no numeric columns were detected. Check RAW_TABLES/TIDY and adjust normalization if needed.')
+    print(TIDY['metric'].value_counts().head(10))
 
