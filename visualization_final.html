@@ -3,8 +3,8 @@
 
 <head>
   <script>
-    if (!window.location.search.includes('v=5')) {
-      window.location.search = '?v=5';
+    if (!window.location.search.includes('v=6')) {
+      window.location.search = '?v=6';
     }
   </script>
   <meta charset="UTF-8" />
@@ -786,19 +786,32 @@
     .chart-controls {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 12px 16px;
       margin: 10px 0 24px;
       padding: 12px 16px;
       border-radius: var(--r-md);
       border: 1px solid rgba(0, 0, 0, 0.06);
-      background: rgba(255, 255, 255, .72)
+      background: rgba(255, 255, 255, .72);
+      overflow: hidden;
+    }
+
+    .chart-controls > div {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1 1 240px;
+      min-width: 0;
+      max-width: 100%;
     }
 
     .chart-controls label {
       font-size: 12px;
       color: var(--text-muted);
-      font-weight: 900
+      font-weight: 900;
+      flex-shrink: 0;
+      white-space: nowrap;
     }
 
     .chart-controls select {
@@ -808,7 +821,11 @@
       background: white;
       color: var(--text-dark);
       font-weight: 900;
-      cursor: pointer
+      cursor: pointer;
+      flex: 1;
+      min-width: 0;
+      max-width: 100%;
+      width: 100%;
     }
 
     .mini-stats {
@@ -1536,23 +1553,26 @@
         </div>
 
         <div class="chart-controls" style="margin-top:10px">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
             <label for="studio-cat">Category (X)</label>
             <select id="studio-cat" aria-label="Studio category"></select>
           </div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
             <label for="studio-val">Value (Y)</label>
             <select id="studio-val" aria-label="Studio value"></select>
           </div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        </div>
+
+        <div class="chart-controls" style="margin-top:10px">
+          <div>
             <label for="studio-val2">Value 2 (optional)</label>
             <select id="studio-val2" aria-label="Studio value 2"></select>
           </div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
             <label for="studio-size">Size (bubble/gauge)</label>
             <select id="studio-size" aria-label="Studio size"></select>
           </div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
             <label for="studio-top">Top N</label>
             <select id="studio-top" aria-label="Studio top">
               <option value="5">Top 5</option>
@@ -1563,7 +1583,7 @@
             </select>
           </div>
           <button id="studio-render" class="btn-viz" type="button"
-            style="height:40px;align-self:center;border:none;cursor:pointer"><i class="fas fa-play"></i> Render</button>
+            style="height:40px;align-self:center;border:none;cursor:pointer;flex:0 0 auto"><i class="fas fa-play"></i> Render</button>
         </div>
 
         <!-- Enhanced customization row -->
