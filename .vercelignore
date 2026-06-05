@@ -1,0 +1,29 @@
+# Python / Render backend (not used on Vercel static deploy)
+server.py
+convert_dccb_cli.py
+run_scb_pacs.py
+requirements.txt
+.python-version
+render.yaml
+deploy_render.ps1
+DEPLOY_RENDER.md
+
+# Dev / test scripts
+*.ipynb
+check_*.py
+test_*.py
+verify_*.py
+build_converters.py
+refine_data*.py
+replace_*.py
+run_dccb.py
+fix*.py
+
+# Local-only data
+*.pdf
+*.xlsx
+*.xls
+*.csv
+extracted_texts.json
+dccb_data.json
+js_data.json

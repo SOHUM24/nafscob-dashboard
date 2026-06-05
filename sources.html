@@ -1450,7 +1450,10 @@
       showStatus(`PDF converted via server: ${filename}`);
     }
 
-    // ── Main converter: try Python server, fallback to in-browser extraction ──
+    const useBrowserPdfOnly = /vercel\.app$/i.test(window.location.hostname)
+      || /vercel\.sh$/i.test(window.location.hostname);
+
+    // ── Main converter: try Python server on Render/local, browser on Vercel ──
     btnConvert.addEventListener('click', async () => {
       if (!pdfFileRef) return;
       btnConvert.disabled = true;
@@ -1461,17 +1464,26 @@
 
       const formatType = resolvePdfFormatType();
 
-      try {
-        await convertPdfViaServer(formatType);
-      } catch (serverErr) {
-        console.warn('Server conversion unavailable:', serverErr);
-        pdfLog(`Server unavailable (${serverErr.message}) — switching to browser extraction...`, 'log-warn');
+      const runBrowser = async () => {
         try {
           await convertPdfInBrowser(formatType);
         } catch (browserErr) {
           console.error(browserErr);
           pdfLog(`✗ Error: ${browserErr.message}`, 'log-warn');
           showStatus(`PDF conversion failed: ${browserErr.message}`, 'error');
+        }
+      };
+
+      if (useBrowserPdfOnly) {
+        pdfLog('Using in-browser PDF extraction (Vercel static host)', 'log-info');
+        await runBrowser();
+      } else {
+        try {
+          await convertPdfViaServer(formatType);
+        } catch (serverErr) {
+          console.warn('Server conversion unavailable:', serverErr);
+          pdfLog(`Server unavailable (${serverErr.message}) — switching to browser extraction...`, 'log-warn');
+          await runBrowser();
         }
       }
       btnConvert.disabled = false;
