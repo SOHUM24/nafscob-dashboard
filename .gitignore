@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Source documents (users upload their own — don't bloat the repo)
+*.pdf
+*.docx
+
+# Source spreadsheets (not needed on the live site)
+*.xlsx
+*.xls
+*.csv
+
+# Notebooks & one-off scripts
+*.ipynb
+build_converters.py
+refine_data*.py
+replace_*.py
+run_dccb.py
+check_*.py
+test_*.py
+verify_*.py
+fix*.py
+
+# Test / temp outputs
+test_converted_output.xlsx
+chart_test.png
+temp_test.js
+extracted_texts.json
+dccb_data.json
+js_data.json
+image.png

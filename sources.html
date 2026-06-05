@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Sources — NAFSCOB Dashboard Upload &amp; Manage</title>
+  <meta name="description" content="Upload new DCCB, STCB, PACS data from Excel, CSV, or JSON files to update the NAFSCOB cooperative banking dashboard.">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,600;0,6..72,800;1,6..72,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="./data_store.js"></script>
+  <style>
+    :root {
+      --forest: #0b2318;
+      --forest-mid: #163d28;
+      --forest-light: #1f5438;
+      --emerald: #00a86b;
+      --emerald-bright: #00d48a;
+      --amber: #d4820a;
+      --amber-bright: #f5a623;
+      --cream: #f7f2eb;
+      --warm-white: #fdfaf5;
+      --sand: #ede5d8;
+      --text-dark: #0f1c12;
+      --text-muted: #6a8475;
+      --border-dark: #d5c8b4;
+      --r-sm: 10px;
+      --r-md: 16px;
+      --r-lg: 24px;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.07);
+      --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.12);
+      --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.18);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text-dark);
+      overflow-x: hidden;
+      line-height: 1.6;
+      background:
+        radial-gradient(circle at 10% 12%, rgba(0,168,107,0.12), transparent 38%),
+        radial-gradient(circle at 88% 6%, rgba(212,130,10,0.10), transparent 40%),
+        repeating-linear-gradient(135deg, rgba(0,0,0,0.02) 0 2px, transparent 2px 14px),
+        linear-gradient(120deg, #fbf9f2, var(--cream));
+      min-height: 100vh;
+    }
+
+    /* ═══ HEADER ═══ */
+    #src-header {
+      position: fixed; top: 0; left: 0; right: 0; height: 64px;
+      background: var(--forest); z-index: 1000;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; box-shadow: 0 4px 24px rgba(0,0,0,.3);
+    }
+    .src-logo { display: flex; align-items: center; gap: 12px; }
+    .src-logo i { font-size: 22px; color: var(--emerald-bright); }
+    .src-logo span { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800; color: white; }
+    .src-nav { display: flex; gap: 16px; align-items: center; }
+    .src-nav a {
+      color: rgba(255,255,255,0.72); text-decoration: none; font-size: 13px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px;
+      transition: all 0.2s;
+    }
+    .src-nav a:hover { color: white; background: rgba(255,255,255,0.08); }
+    .src-nav .btn-viz {
+      background: var(--emerald); color: white; padding: 8px 18px;
+      border-radius: var(--r-sm); font-weight: 900;
+    }
+    .src-nav .btn-viz:hover { background: var(--emerald-bright); }
+
+    @media(max-width:768px) {
+      #src-header { padding: 0 16px; }
+      .src-nav a:not(.btn-viz) { display: none; }
+    }
+
+    /* ═══ MAIN CONTAINER ═══ */
+    .main { max-width: 1200px; margin: 0 auto; padding: 100px 48px 60px; }
+    @media(max-width:768px) { .main { padding: 84px 16px 40px; } }
+
+    /* ═══ HERO ═══ */
+    .page-hero {
+      background: var(--forest); border-radius: var(--r-lg); padding: 48px 40px;
+      margin-bottom: 32px; position: relative; overflow: hidden;
+    }
+    .page-hero::before {
+      content: ''; position: absolute; inset: 0;
+      background-image: linear-gradient(rgba(0,168,107,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,168,107,0.04) 1px, transparent 1px);
+      background-size: 56px 56px;
+      animation: bgDrift 30s linear infinite; opacity: .95;
+    }
+    @keyframes bgDrift { 0%{background-position:0 0} 100%{background-position:56px 56px} }
+    .page-hero .eyebrow {
+      position: relative; z-index: 1;
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(0,168,107,.14); border: 1px solid rgba(0,168,107,.35);
+      color: var(--emerald-bright); padding: 8px 18px; border-radius: 100px;
+      font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .page-hero h1 {
+      position: relative; z-index: 1; font-family: 'Syne', sans-serif;
+      font-size: clamp(28px, 3.5vw, 44px); font-weight: 950; color: white;
+      line-height: 1.12; margin-bottom: 12px;
+    }
+    .page-hero h1 .hl { color: var(--emerald-bright); }
+    .page-hero h1 .hl-amber { color: var(--amber-bright); }
+    .page-hero p {
+      position: relative; z-index: 1; font-size: 15px;
+      color: rgba(255,255,255,.6); max-width: 650px; line-height: 1.75; font-weight: 300;
+    }
+
+    /* ═══ SECTION HEADERS ═══ */
+    .sec-tag {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 10px; font-weight: 900; letter-spacing: .16em;
+      text-transform: uppercase; color: var(--emerald); margin-bottom: 12px;
+    }
+    .sec-title {
+      font-family: 'Syne', sans-serif; font-size: clamp(22px, 2.8vw, 34px);
+      font-weight: 950; line-height: 1.15; margin-bottom: 8px;
+    }
+    .sec-title .accent { color: var(--emerald); }
+    .sec-lead { font-size: 14px; color: var(--text-muted); max-width: 600px; line-height: 1.65; margin-bottom: 28px; font-weight: 300; }
+    .divider { width: 52px; height: 4px; background: linear-gradient(90deg, var(--emerald), var(--amber-bright)); border-radius: 2px; margin: 10px 0 24px; }
+
+    /* ═══ STEPPER ═══ */
+    .stepper {
+      display: flex; align-items: center; gap: 0; margin-bottom: 32px;
+      background: white; border-radius: var(--r-lg); padding: 16px 20px;
+      border: 1px solid var(--border-dark); box-shadow: var(--shadow-sm);
+    }
+    .step-item {
+      display: flex; align-items: center; gap: 10px; flex: 1;
+      padding: 8px 12px; border-radius: 12px; transition: all 0.3s;
+    }
+    .step-item.active { background: rgba(0,168,107,0.08); }
+    .step-item.done { opacity: 0.5; }
+    .step-num {
+      width: 32px; height: 32px; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; font-weight: 900;
+      font-size: 13px; border: 2px solid var(--border-dark); color: var(--text-muted);
+      transition: all 0.3s; flex-shrink: 0;
+    }
+    .step-item.active .step-num { background: var(--emerald); color: white; border-color: var(--emerald); }
+    .step-item.done .step-num { background: var(--forest-light); color: white; border-color: var(--forest-light); }
+    .step-label { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+    .step-item.active .step-label { color: var(--text-dark); }
+    .step-connector { width: 32px; height: 2px; background: var(--border-dark); flex-shrink: 0; }
+    @media(max-width:600px) {
+      .stepper { flex-wrap: wrap; gap: 8px; }
+      .step-connector { display: none; }
+      .step-item { flex: none; }
+    }
+
+    /* ═══ CARDS ═══ */
+    .card {
+      background: rgba(255,255,255,0.92); border: 1px solid rgba(0,0,0,0.06);
+      border-radius: var(--r-lg); padding: 28px; box-shadow: var(--shadow-sm);
+      margin-bottom: 24px; transition: box-shadow 0.3s;
+    }
+    .card:hover { box-shadow: var(--shadow-md); }
+    .card h3 {
+      font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 950;
+      margin-bottom: 8px; display: flex; align-items: center; gap: 10px;
+    }
+    .card h3 i { color: var(--emerald); font-size: 16px; }
+
+    /* ═══ UPLOAD ZONE ═══ */
+    .upload-zone {
+      border: 2.5px dashed rgba(0,168,107,0.35); border-radius: var(--r-lg);
+      padding: 48px 28px; text-align: center; cursor: pointer;
+      transition: all 0.35s; position: relative; overflow: hidden;
+      background: linear-gradient(135deg, rgba(0,168,107,0.03), rgba(245,166,35,0.03));
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--emerald); background: rgba(0,168,107,0.06);
+      box-shadow: 0 0 40px rgba(0,168,107,0.15);
+    }
+    .upload-zone.dragover { transform: scale(1.01); }
+    .upload-zone .uz-icon {
+      width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 18px;
+      background: linear-gradient(135deg, var(--emerald), var(--forest-light));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: white; box-shadow: 0 8px 24px rgba(0,168,107,0.3);
+      transition: transform 0.35s;
+    }
+    .upload-zone:hover .uz-icon { transform: scale(1.1) rotate(-5deg); }
+    .upload-zone h4 { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    .upload-zone p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+    .upload-zone .formats {
+      display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    }
+    .upload-zone .format-badge {
+      background: var(--forest); color: white; padding: 4px 12px; border-radius: 999px;
+      font-size: 11px; font-weight: 900; letter-spacing: 0.05em;
+    }
+    .upload-zone input[type="file"] { display: none; }
+
+    /* ═══ CONFIG ROW ═══ */
+    .config-row {
+      display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; align-items: end;
+    }
+    .config-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+    .config-field label {
+      font-size: 11px; font-weight: 900; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-muted);
+    }
+    .config-field select, .config-field input {
+      border: 1.5px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 10px 14px;
+      background: white; color: var(--text-dark); font-weight: 700; font-size: 13px;
+      font-family: 'DM Sans', sans-serif; cursor: pointer; transition: border-color 0.2s;
+    }
+    .config-field select:focus, .config-field input:focus {
+      outline: none; border-color: var(--emerald);
+    }
+
+    /* ═══ MAPPING TABLE ═══ */
+    .mapping-table {
+      width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 16px 0;
+    }
+    .mapping-table thead th {
+      background: var(--forest); color: white; padding: 10px 14px; text-align: left;
+      font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 900;
+    }
+    .mapping-table tbody td {
+      padding: 10px 14px; border-bottom: 1px solid var(--sand); vertical-align: middle;
+    }
+    .mapping-table tbody tr:hover td { background: rgba(0,168,107,.04); }
+    .mapping-table select {
+      border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 6px 10px;
+      font-size: 12px; font-weight: 700; background: white; width: 100%;
+    }
+    .mapping-table .sample { font-size: 11px; color: var(--text-muted); font-style: italic; }
+    .mapping-table .matched { color: var(--emerald); font-weight: 900; }
+    .mapping-table .unmatched { color: var(--amber); }
+
+    /* ═══ PREVIEW TABLE ═══ */
+    .preview-wrap {
+      overflow-x: auto; border-radius: var(--r-md); max-height: 360px; overflow-y: auto;
+      box-shadow: var(--shadow-sm); background: white; border: 1px solid var(--border-dark);
+    }
+    .preview-table {
+      width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap;
+    }
+    .preview-table thead th {
+      background: var(--forest); color: white; padding: 10px 12px; text-align: left;
+      font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-weight: 900;
+      position: sticky; top: 0; z-index: 1;
+    }
+    .preview-table tbody td {
+      padding: 8px 12px; border-bottom: 1px solid var(--sand); color: var(--text-muted);
+    }
+    .preview-table tbody tr:hover td { background: rgba(0,168,107,.04); }
+
+    /* ═══ DATA MANAGER ═══ */
+    .dataset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+    .ds-card {
+      background: white; border: 1px solid var(--border-dark); border-radius: var(--r-md);
+      padding: 18px; display: flex; flex-direction: column; gap: 10px;
+      transition: all 0.25s; position: relative; overflow: hidden;
+    }
+    .ds-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--emerald), var(--amber-bright));
+    }
+    .ds-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .ds-card .ds-type {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 10px;
+      font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--emerald); background: rgba(0,168,107,0.1);
+      padding: 4px 10px; border-radius: 999px; width: fit-content;
+    }
+    .ds-card .ds-year { font-family: 'Newsreader', serif; font-size: 28px; font-weight: 950; color: var(--text-dark); }
+    .ds-card .ds-meta { font-size: 11px; color: var(--text-muted); }
+    .ds-card .ds-actions { display: flex; gap: 8px; margin-top: auto; }
+
+    /* ═══ BUTTONS ═══ */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;
+      border-radius: var(--r-sm); font-weight: 700; font-size: 13px; cursor: pointer;
+      border: none; font-family: 'DM Sans', sans-serif; transition: all 0.25s;
+      text-decoration: none;
+    }
+    .btn-primary { background: var(--emerald); color: white; }
+    .btn-primary:hover { background: var(--emerald-bright); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,168,107,0.35); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-outline {
+      background: transparent; color: var(--text-dark); border: 1.5px solid rgba(0,0,0,0.12);
+    }
+    .btn-outline:hover { border-color: var(--emerald); color: var(--emerald); }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-sm { padding: 8px 14px; font-size: 11px; }
+    .btn-icon {
+      width: 36px; height: 36px; padding: 0; border-radius: 10px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+
+    /* ═══ STEP PANELS ═══ */
+    .step-panel { display: none; animation: fadeIn 0.3s ease; }
+    .step-panel.active { display: block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ═══ FILE INFO ═══ */
+    .file-info {
+      display: flex; align-items: center; gap: 14px; padding: 14px 18px;
+      background: rgba(0,168,107,0.06); border: 1px solid rgba(0,168,107,0.2);
+      border-radius: var(--r-md); margin-bottom: 16px;
+    }
+    .file-info i { font-size: 24px; color: var(--emerald); }
+    .file-info .fi-name { font-weight: 900; font-size: 14px; }
+    .file-info .fi-meta { font-size: 11px; color: var(--text-muted); }
+
+    /* ═══ STATUS ═══ */
+    .status-banner {
+      padding: 14px 18px; border-radius: var(--r-md); margin: 16px 0;
+      display: none; align-items: center; gap: 12px; font-weight: 700; font-size: 13px;
+      animation: fadeIn 0.3s;
+    }
+    .status-banner.success {
+      display: flex; background: rgba(0,168,107,0.08); border: 1px solid rgba(0,168,107,0.3); color: var(--emerald);
+    }
+    .status-banner.error {
+      display: flex; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.3); color: #dc2626;
+    }
+    .status-banner i { font-size: 18px; flex-shrink: 0; }
+
+    /* ═══ EMPTY STATE ═══ */
+    .empty-state {
+      text-align: center; padding: 48px 20px; color: var(--text-muted);
+    }
+    .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+    .empty-state h4 { font-family: 'Syne', sans-serif; font-size: 18px; color: var(--text-dark); margin-bottom: 8px; }
+    .empty-state p { font-size: 13px; }
+
+    /* ═══ LOADING ═══ */
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(0,168,107,0.2); border-top-color: var(--emerald); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* ═══ TABS ═══ */
+    .mode-tabs {
+      display: flex; gap: 0; margin-bottom: 24px;
+      background: var(--sand); border-radius: var(--r-md); padding: 5px;
+      border: 1px solid var(--border-dark);
+    }
+    .mode-tab {
+      flex: 1; padding: 12px 16px; border-radius: 12px; text-align: center;
+      cursor: pointer; font-weight: 800; font-size: 13px; color: var(--text-muted);
+      transition: all 0.25s; display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: transparent; border: none; font-family: 'DM Sans', sans-serif;
+    }
+    .mode-tab:hover { color: var(--text-dark); }
+    .mode-tab.active {
+      background: white; color: var(--emerald); box-shadow: var(--shadow-sm);
+    }
+    .mode-tab i { font-size: 14px; }
+    .tab-content { display: none; animation: fadeIn 0.3s ease; }
+    .tab-content.active { display: block; }
+
+    /* ═══ PDF CONVERTER ═══ */
+    .pdf-log {
+      background: var(--forest); border-radius: var(--r-md); padding: 16px 20px;
+      font-family: 'Courier New', monospace; font-size: 12px; color: rgba(255,255,255,0.8);
+      max-height: 260px; overflow-y: auto; margin: 16px 0;
+      line-height: 1.7; border: 1px solid rgba(255,255,255,0.08);
+    }
+    .pdf-log .log-ok { color: var(--emerald-bright); }
+    .pdf-log .log-warn { color: var(--amber-bright); }
+    .pdf-log .log-info { color: rgba(255,255,255,0.5); }
+    .pdf-log .log-head { color: white; font-weight: 900; }
+    .pdf-progress {
+      height: 6px; background: rgba(0,168,107,0.15); border-radius: 999px;
+      overflow: hidden; margin-bottom: 12px;
+    }
+    .pdf-progress-bar {
+      height: 100%; width: 0%; border-radius: 999px;
+      background: linear-gradient(90deg, var(--emerald), var(--amber-bright));
+      transition: width 0.3s ease;
+    }
+    .pdf-preview-wrap {
+      overflow-x: auto; border-radius: var(--r-md); max-height: 320px; overflow-y: auto;
+      box-shadow: var(--shadow-sm); background: white; border: 1px solid var(--border-dark);
+      margin-top: 16px;
+    }
+    .pdf-result-actions {
+      display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; align-items: center;
+    }
+
+    /* ═══ FOOTER ═══ */
+    .page-footer {
+      text-align: center; padding: 32px 0; font-size: 11px; color: var(--text-muted);
+      border-top: 1px solid var(--border-dark); margin-top: 40px;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- HEADER -->
+  <header id="src-header">
+    <div class="src-logo">
+      <i class="fas fa-database"></i>
+      <span>Data Sources Manager</span>
+    </div>
+    <nav class="src-nav">
+      <a href="index.html"><i class="fas fa-book-open"></i> Report</a>
+      <a href="visualization_final.html"><i class="fas fa-chart-area"></i> Dashboard</a>
+      <a href="visualization_final.html#viz-studio"><i class="fas fa-wand-magic-sparkles"></i> Chart Builder</a>
+      <a href="visualization_final.html" class="btn-viz"><i class="fas fa-arrow-left"></i> Back</a>
+    </nav>
+  </header>
+
+  <div class="main">
+    <!-- HERO -->
+    <div class="page-hero">
+      <div class="eyebrow"><i class="fas fa-upload"></i> Data Management</div>
+      <h1>Upload &amp; Manage <span class="hl">Data Sources</span></h1>
+      <p>Update your NAFSCOB dashboard with new data. Upload Excel, CSV, or JSON files — the system will auto-detect fields and seamlessly merge with existing visualizations.</p>
+    </div>
+
+    <!-- STATUS BANNER -->
+    <div class="status-banner" id="status-banner">
+      <i class="fas fa-check-circle"></i>
+      <span id="status-text"></span>
+    </div>
+
+    <!-- STEPPER -->
+    <div class="stepper" id="stepper">
+      <div class="step-item active" data-step="1">
+        <div class="step-num">1</div>
+        <div class="step-label">Upload File</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" data-step="2">
+        <div class="step-num">2</div>
+        <div class="step-label">Map Fields</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" data-step="3">
+        <div class="step-num">3</div>
+        <div class="step-label">Preview</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" data-step="4">
+        <div class="step-num">4</div>
+        <div class="step-label">Save</div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 1: UPLOAD ═══ -->
+    <div class="step-panel active" id="panel-1">
+      <!-- TAB SWITCHER -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-upload" onclick="switchTab('upload')">
+          <i class="fas fa-file-excel"></i> Upload Structured Data
+        </button>
+        <button class="mode-tab" id="tab-pdf" onclick="switchTab('pdf')">
+          <i class="fas fa-file-pdf"></i> Convert PDF → Excel
+        </button>
+      </div>
+
+      <!-- TAB 1: STRUCTURED DATA UPLOAD (existing) -->
+      <div class="tab-content active" id="tab-content-upload">
+        <div class="card">
+          <h3><i class="fas fa-cloud-arrow-up"></i> Upload Data File</h3>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+            Choose a file from your computer. Supported formats: Excel (.xlsx, .xls), CSV, and JSON.
+          </p>
+          <div class="upload-zone" id="upload-zone">
+            <div class="uz-icon"><i class="fas fa-file-arrow-up"></i></div>
+            <h4>Drop your file here</h4>
+            <p>or click to browse files</p>
+            <div class="formats">
+              <span class="format-badge">.XLSX</span>
+              <span class="format-badge">.XLS</span>
+              <span class="format-badge">.CSV</span>
+              <span class="format-badge">.JSON</span>
+            </div>
+            <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.json">
+          </div>
+
+          <div class="config-row" style="margin-top:24px;">
+            <div class="config-field">
+              <label for="data-type">Data Type</label>
+              <select id="data-type">
+                <option value="DCCB" selected>DCCB — District Central Cooperative Banks</option>
+                <option value="STCB">STCB — State Cooperative Banks</option>
+                <option value="PACS">PACS — Primary Agricultural Credit Societies</option>
+              </select>
+            </div>
+            <div class="config-field">
+              <label for="data-year">Financial Year</label>
+              <input type="text" id="data-year" placeholder="e.g. 2025" value="">
+            </div>
+            <div class="config-field" id="sheet-selector-wrap" style="display:none;">
+              <label for="sheet-select">Sheet</label>
+              <select id="sheet-select"></select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: PDF CONVERTER -->
+      <div class="tab-content" id="tab-content-pdf">
+        <div class="card">
+          <h3><i class="fas fa-file-pdf" style="color:#dc2626;"></i> Convert NAFSCOB PDF to Excel</h3>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">
+            Upload a NAFSCOB report PDF (BDC, SCB, or PACS). The system will extract tables, normalize data,
+            and generate a downloadable Excel/CSV file you can then upload via the "Upload Structured Data" tab.
+          </p>
+          <p style="font-size:11px;color:var(--amber);margin-bottom:20px;font-weight:700;">
+            <i class="fas fa-info-circle"></i> Works best with text-based PDFs from NAFSCOB (not scanned images).
+          </p>
+
+          <div class="upload-zone" id="pdf-upload-zone">
+            <div class="uz-icon" style="background:linear-gradient(135deg,#dc2626,#991b1b);">
+              <i class="fas fa-file-pdf"></i>
+            </div>
+            <h4>Drop NAFSCOB PDF here</h4>
+            <p>or click to browse — BDC(MARCH), SCB(MARCH), PACS reports</p>
+            <div class="formats">
+              <span class="format-badge" style="background:#dc2626;">.PDF</span>
+            </div>
+            <input type="file" id="pdf-file-input" accept=".pdf">
+          </div>
+
+          <div class="config-row" style="margin-top:24px;">
+            <div class="config-field">
+              <label for="pdf-type">Report Type</label>
+              <select id="pdf-type">
+                <option value="auto" selected>Auto-detect from PDF</option>
+                <option value="DCCB">DCCB — BDC(MARCH) Reports</option>
+                <option value="STCB">STCB — SCB(MARCH) Reports</option>
+                <option value="PACS">PACS — PACS Reports</option>
+              </select>
+            </div>
+            <div class="config-field">
+              <label for="pdf-output-format">Output Format</label>
+              <select id="pdf-output-format">
+                <option value="xlsx" selected>Excel (.xlsx)</option>
+                <option value="csv">CSV (.csv)</option>
+              </select>
+            </div>
+            <div class="config-field" style="flex:0;">
+              <label>&nbsp;</label>
+              <button class="btn btn-primary" id="btn-convert-pdf" disabled>
+                <i class="fas fa-wand-magic-sparkles"></i> Convert
+              </button>
+            </div>
+          </div>
+
+          <!-- PROGRESS -->
+          <div id="pdf-progress-section" style="display:none;">
+            <div class="pdf-progress">
+              <div class="pdf-progress-bar" id="pdf-progress-bar"></div>
+            </div>
+            <div class="pdf-log" id="pdf-log"></div>
+          </div>
+
+          <!-- PREVIEW -->
+          <div id="pdf-result-section" style="display:none;">
+            <div style="margin-top:20px;">
+              <div class="sec-tag"><i class="fas fa-check-circle"></i> EXTRACTION COMPLETE</div>
+              <div class="file-info" id="pdf-result-info">
+                <i class="fas fa-table" style="color:var(--emerald);"></i>
+                <div>
+                  <div class="fi-name" id="pdf-result-name">—</div>
+                  <div class="fi-meta" id="pdf-result-meta">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pdf-preview-wrap">
+              <table class="preview-table" id="pdf-preview-table">
+                <thead><tr id="pdf-preview-head"></tr></thead>
+                <tbody id="pdf-preview-body"></tbody>
+              </table>
+            </div>
+
+            <div class="pdf-result-actions">
+              <button class="btn btn-primary" id="btn-download-converted">
+                <i class="fas fa-download"></i> Download <span id="download-format-label">Excel</span>
+              </button>
+              <button class="btn btn-outline" id="btn-use-converted">
+                <i class="fas fa-arrow-right"></i> Use in Upload Flow
+              </button>
+              <span style="font-size:11px;color:var(--text-muted);margin-left:auto;" id="pdf-extract-stats"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 2: MAP FIELDS ═══ -->
+    <div class="step-panel" id="panel-2">
+      <div class="card">
+        <h3><i class="fas fa-arrows-turn-to-dots"></i> Map Fields</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+          The system has auto-detected your columns. Map each uploaded column to the corresponding dashboard field.
+          Green = auto-matched, amber = needs your input.
+        </p>
+
+        <div class="file-info" id="file-info-2">
+          <i class="fas fa-file-excel"></i>
+          <div>
+            <div class="fi-name" id="fi-name-2">—</div>
+            <div class="fi-meta" id="fi-meta-2">—</div>
+          </div>
+        </div>
+
+        <div class="config-row">
+          <div class="config-field" style="max-width:280px;">
+            <label for="state-col">State/Region Column</label>
+            <select id="state-col"></select>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table class="mapping-table" id="mapping-table">
+            <thead>
+              <tr>
+                <th>Uploaded Column</th>
+                <th>Sample Values</th>
+                <th>→ Dashboard Field</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="mapping-body"></tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:20px;">
+          <button class="btn btn-outline" id="btn-back-1"><i class="fas fa-arrow-left"></i> Back</button>
+          <button class="btn btn-primary" id="btn-next-2"><i class="fas fa-arrow-right"></i> Preview Data</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 3: PREVIEW ═══ -->
+    <div class="step-panel" id="panel-3">
+      <div class="card">
+        <h3><i class="fas fa-table"></i> Preview Parsed Data</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+          Review the data before saving. This is how it will appear in the dashboard.
+        </p>
+
+        <div class="file-info" id="file-info-3">
+          <i class="fas fa-database"></i>
+          <div>
+            <div class="fi-name" id="fi-name-3">—</div>
+            <div class="fi-meta" id="fi-meta-3">—</div>
+          </div>
+        </div>
+
+        <div class="preview-wrap" id="preview-wrap">
+          <table class="preview-table" id="preview-table">
+            <thead><tr id="preview-head"></tr></thead>
+            <tbody id="preview-body"></tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:20px;">
+          <button class="btn btn-outline" id="btn-back-2"><i class="fas fa-arrow-left"></i> Back</button>
+          <button class="btn btn-primary" id="btn-save"><i class="fas fa-floppy-disk"></i> Save to Dashboard</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 4: SUCCESS ═══ -->
+    <div class="step-panel" id="panel-4">
+      <div class="card" style="text-align:center; padding:48px 28px;">
+        <div style="width:80px;height:80px;border-radius:50%;background:rgba(0,168,107,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:36px;color:var(--emerald);">
+          <i class="fas fa-circle-check"></i>
+        </div>
+        <h3 style="justify-content:center;font-size:24px;"><span id="success-type">DCCB</span> <span id="success-year">2025</span> Data Saved!</h3>
+        <p style="font-size:14px;color:var(--text-muted);margin:12px auto 28px;max-width:480px;">
+          Your data has been permanently saved. Open the dashboard to see the updated visualizations, or upload more data.
+        </p>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+          <a href="visualization_final.html" class="btn btn-primary"><i class="fas fa-chart-area"></i> View Dashboard</a>
+          <button class="btn btn-outline" id="btn-upload-more"><i class="fas fa-plus"></i> Upload More</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DATA MANAGER ═══ -->
+    <div class="card" style="margin-top:16px;">
+      <h3><i class="fas fa-layer-group"></i> Uploaded Datasets</h3>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">
+        All data you've uploaded is stored locally in your browser. It persists across page reloads.
+      </p>
+
+      <div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" id="btn-export-all"><i class="fas fa-download"></i> Export All Data</button>
+        <button class="btn btn-outline btn-sm" id="btn-import-data"><i class="fas fa-upload"></i> Import Data</button>
+        <button class="btn btn-danger btn-sm" id="btn-clear-all" style="margin-left:auto;"><i class="fas fa-trash"></i> Clear All</button>
+        <input type="file" id="import-file-input" accept=".json" style="display:none;">
+      </div>
+
+      <div id="datasets-container">
+        <div class="empty-state" id="empty-state">
+          <i class="fas fa-inbox"></i>
+          <h4>No uploaded datasets</h4>
+          <p>Upload your first file above to get started.</p>
+        </div>
+        <div class="dataset-grid" id="dataset-grid" style="display:none;"></div>
+      </div>
+    </div>
+
+    <footer class="page-footer">
+      NAFSCOB Dashboard · Data Sources Manager · Data stored in browser (IndexedDB)
+    </footer>
+  </div>
+
+  <script>
+    /* ═════════════════════════════════════════════════
+       STATE & REFERENCES
+    ═════════════════════════════════════════════════ */
+    let currentStep = 1;
+    let parsedData = null; // { columns: [], rows: [{…}], fileName:'', fileSize:0 }
+    let fieldMapping = {}; // { dashboardField: uploadedColumn }
+    let stateColumn = '';
+    let mappedOutput = {}; // { STATE: { metric: val } }
+
+    const DCCB_FIELDS = [
+      'offices','members','deposits','working_capital','cash','bank_balances',
+      'investments','st_agri_loans','st_non_agri_loans','mt_agri_loans','mt_non_agri_loans',
+      'cost_mgmt','employees','com_per_emp','com_pct','pl','branches_profit','branches_loss',
+      'kcc_issued','kcc_sanctioned','business','yield_per_emp','npa','loans'
+    ];
+    const STCB_FIELDS = [
+      'No_Offices_incl_HO','Total_Membership','Total_ShareCapital','Total_Reserve_Funds',
+      'Total_Deposits','Working_Capital','Total_Investments','Total_Demand','Total_Collection',
+      'Total_Balances_Overdues','Total_Pct_Overdues_to_Demand','CoM_Total','Total_Employees',
+      'Profit_Loss_Amount','Total_ST_Agri_Outstanding'
+    ];
+    const PACS_FIELDS = [
+      'TOTAL NO. OF PACS','TOTAL MEMBERSHIP in 000','TOTAL DEPOSITS','TOTAL BORROWINGS',
+      'WORKING CAPITAL','TOTAL NO. OF BORROWERS','TOTAL LOANS AND ADVANCES ISSUED',
+      'TOTAL LOANS AND ADVANCES OUTSTANDINGS','TOTAL DEMAND','TOTAL COLLECTION',
+      'TOTAL BALANCES (OVERDUES)','SOCIETIES IN PROFIT','SOCIETIES IN LOSS'
+    ];
+
+    function getExpectedFields() {
+      const t = document.getElementById('data-type').value;
+      if (t === 'DCCB') return DCCB_FIELDS;
+      if (t === 'STCB') return STCB_FIELDS;
+      return PACS_FIELDS;
+    }
+
+    /* ═════════════════════════════════════════════════
+       STEPPER NAVIGATION
+    ═════════════════════════════════════════════════ */
+    function setStep(n) {
+      currentStep = n;
+      document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(`panel-${n}`).classList.add('active');
+      document.querySelectorAll('.step-item').forEach(s => {
+        const sn = +s.dataset.step;
+        s.classList.toggle('active', sn === n);
+        s.classList.toggle('done', sn < n);
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* ═════════════════════════════════════════════════
+       STATUS MESSAGES
+    ═════════════════════════════════════════════════ */
+    function showStatus(msg, type = 'success') {
+      const banner = document.getElementById('status-banner');
+      const text = document.getElementById('status-text');
+      banner.className = `status-banner ${type}`;
+      banner.querySelector('i').className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
+      text.textContent = msg;
+      setTimeout(() => { banner.className = 'status-banner'; }, 6000);
+    }
+
+    /* ═════════════════════════════════════════════════
+       FILE UPLOAD
+    ═════════════════════════════════════════════════ */
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+
+    uploadZone.addEventListener('click', () => fileInput.click());
+    uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+    uploadZone.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+
+    async function handleFile(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      const supported = ['xlsx', 'xls', 'csv', 'json'];
+      if (!supported.includes(ext)) {
+        showStatus(`Unsupported file format: .${ext}. Please use ${supported.map(s => '.' + s).join(', ')}`, 'error');
+        return;
+      }
+
+      try {
+        if (ext === 'json') {
+          const text = await file.text();
+          const json = JSON.parse(text);
+          parseJSON(json, file);
+        } else {
+          const ab = await file.arrayBuffer();
+          const wb = XLSX.read(ab, { type: 'array' });
+
+          // Show sheet selector if multiple sheets
+          const sheetWrap = document.getElementById('sheet-selector-wrap');
+          const sheetSel = document.getElementById('sheet-select');
+          if (wb.SheetNames.length > 1) {
+            sheetSel.innerHTML = wb.SheetNames.map((s, i) => `<option value="${s}" ${i === 0 ? 'selected' : ''}>${s}</option>`).join('');
+            sheetWrap.style.display = '';
+            sheetSel.onchange = () => parseSheet(wb, sheetSel.value, file);
+          } else {
+            sheetWrap.style.display = 'none';
+          }
+
+          parseSheet(wb, wb.SheetNames[0], file);
+        }
+
+        // Auto-detect year from filename
+        const yearMatch = file.name.match(/20\d{2}/);
+        if (yearMatch) document.getElementById('data-year').value = yearMatch[0];
+
+        // Auto-detect type
+        const nameLower = file.name.toLowerCase();
+        if (nameLower.includes('dccb') || nameLower.includes('bdc')) document.getElementById('data-type').value = 'DCCB';
+        else if (nameLower.includes('stcb') || nameLower.includes('scb')) document.getElementById('data-type').value = 'STCB';
+        else if (nameLower.includes('pacs')) document.getElementById('data-type').value = 'PACS';
+
+        showStatus(`File "${file.name}" loaded successfully. ${parsedData.rows.length} rows, ${parsedData.columns.length} columns detected.`);
+        buildMappingStep();
+        setStep(2);
+      } catch (err) {
+        console.error(err);
+        showStatus(`Error parsing file: ${err.message}`, 'error');
+      }
+    }
+
+    function parseSheet(wb, sheetName, file) {
+      const ws = wb.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      if (!json.length) { showStatus('Sheet is empty.', 'error'); return; }
+      const columns = Object.keys(json[0]);
+      parsedData = { columns, rows: json, fileName: file.name, fileSize: file.size, sheet: sheetName };
+    }
+
+    function parseJSON(json, file) {
+      // Try to detect structure
+      if (Array.isArray(json) && json.length && typeof json[0] === 'object') {
+        const columns = Object.keys(json[0]);
+        parsedData = { columns, rows: json, fileName: file.name, fileSize: file.size };
+      } else if (typeof json === 'object') {
+        // Could be { STATE: { metric: val } } — convert to rows
+        const states = Object.keys(json);
+        if (states.length && typeof json[states[0]] === 'object') {
+          const allKeys = new Set();
+          for (const s of states) { for (const k of Object.keys(json[s])) allKeys.add(k); }
+          const columns = ['State/UT', ...Array.from(allKeys)];
+          const rows = states.map(s => {
+            const row = { 'State/UT': s };
+            for (const k of allKeys) row[k] = json[s][k] ?? '';
+            return row;
+          });
+          parsedData = { columns, rows, fileName: file.name, fileSize: file.size };
+        } else {
+          throw new Error('Cannot detect tabular structure in JSON.');
+        }
+      } else {
+        throw new Error('Unsupported JSON format.');
+      }
+    }
+
+    /* ═════════════════════════════════════════════════
+       FIELD MAPPING (Step 2)
+    ═════════════════════════════════════════════════ */
+    function fuzzyMatch(uploaded, expected) {
+      const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const nu = norm(uploaded);
+      // Exact match
+      let best = expected.find(e => norm(e) === nu);
+      if (best) return best;
+      // Partial match
+      best = expected.find(e => nu.includes(norm(e)) || norm(e).includes(nu));
+      if (best) return best;
+      // Common aliases
+      const aliases = {
+        'deposit': 'deposits', 'totaldeposits': 'deposits', 'totdeposits': 'deposits',
+        'workingcapital': 'working_capital', 'wc': 'working_capital',
+        'npa': 'npa', 'grossnpa': 'npa', 'totalemployees': 'employees',
+        'employee': 'employees', 'noofemployees': 'employees',
+        'membership': 'members', 'totalmembership': 'members',
+        'profitloss': 'pl', 'profitlossamount': 'Profit_Loss_Amount',
+        'nooffices': 'offices', 'branches': 'offices',
+        'stagrloans': 'st_agri_loans', 'mtagrloans': 'mt_agri_loans',
+        'stnonagriloans': 'st_non_agri_loans', 'mtnonagriloans': 'mt_non_agri_loans',
+        'totalinvestments': 'investments', 'investment': 'investments',
+        'costofmanagement': 'cost_mgmt', 'costmanagement': 'cost_mgmt', 'com': 'cost_mgmt',
+        'kccissued': 'kcc_issued', 'kccsanctioned': 'kcc_sanctioned',
+        'totalloans': 'loans', 'totalbusiness': 'business',
+        'cash': 'cash', 'cashonhand': 'cash',
+        'bankbalances': 'bank_balances', 'balanceswithbanks': 'bank_balances',
+      };
+      const alias = aliases[nu];
+      if (alias && expected.includes(alias)) return alias;
+      return '';
+    }
+
+    function detectStateColumn() {
+      const stateHints = ['state', 'ut', 'state/ut', 'region', 'name', 'statename', 'state_name'];
+      for (const col of parsedData.columns) {
+        if (stateHints.some(h => col.toLowerCase().replace(/[^a-z]/g, '').includes(h.replace(/[^a-z]/g, '')))) {
+          return col;
+        }
+      }
+      // Check first column content — if it looks like state names
+      const first = parsedData.columns[0];
+      const sampleVals = parsedData.rows.slice(0, 5).map(r => String(r[first] || '').toUpperCase());
+      const knownStates = ['MAHARASHTRA', 'KARNATAKA', 'TAMIL NADU', 'ANDHRA PRADESH', 'GUJARAT', 'RAJASTHAN', 'UTTAR PRADESH'];
+      if (sampleVals.some(v => knownStates.some(ks => v.includes(ks)))) return first;
+      return parsedData.columns[0];
+    }
+
+    function buildMappingStep() {
+      if (!parsedData) return;
+      const expected = getExpectedFields();
+
+      // File info
+      document.getElementById('fi-name-2').textContent = parsedData.fileName;
+      document.getElementById('fi-meta-2').textContent =
+        `${(parsedData.fileSize / 1024).toFixed(1)} KB · ${parsedData.rows.length} rows · ${parsedData.columns.length} columns` +
+        (parsedData.sheet ? ` · Sheet: ${parsedData.sheet}` : '');
+
+      // State column
+      stateColumn = detectStateColumn();
+      const stateColSel = document.getElementById('state-col');
+      stateColSel.innerHTML = parsedData.columns.map(c =>
+        `<option value="${c}" ${c === stateColumn ? 'selected' : ''}>${c}</option>`
+      ).join('');
+      stateColSel.onchange = () => { stateColumn = stateColSel.value; };
+
+      // Build mapping rows
+      const tbody = document.getElementById('mapping-body');
+      const numericCols = parsedData.columns.filter(c => {
+        if (c === stateColumn) return false;
+        const vals = parsedData.rows.slice(0, 10).map(r => r[c]);
+        const numCount = vals.filter(v => v !== '' && !isNaN(Number(v))).length;
+        return numCount >= Math.max(1, vals.length * 0.4);
+      });
+
+      const usedFields = new Set();
+      const mappingRows = [];
+
+      for (const col of parsedData.columns) {
+        if (col === stateColumn) continue;
+        const matched = fuzzyMatch(col, expected);
+        if (matched) usedFields.add(matched);
+        const samples = parsedData.rows.slice(0, 3).map(r => r[col]).filter(v => v !== '').join(', ');
+
+        mappingRows.push({ col, matched, samples });
+      }
+
+      tbody.innerHTML = mappingRows.map(({ col, matched, samples }) => {
+        const options = ['<option value="">— Skip —</option>']
+          .concat(expected.map(f =>
+            `<option value="${f}" ${f === matched ? 'selected' : ''}>${f}</option>`
+          ))
+          .join('');
+        const statusClass = matched ? 'matched' : 'unmatched';
+        const statusIcon = matched ? '<i class="fas fa-check-circle"></i> Matched' : '<i class="fas fa-question-circle"></i> Unmapped';
+        return `<tr>
+          <td style="font-weight:900;">${col}</td>
+          <td class="sample">${samples || '—'}</td>
+          <td><select class="map-select" data-col="${col}">${options}</select></td>
+          <td class="${statusClass}">${statusIcon}</td>
+        </tr>`;
+      }).join('');
+
+      // Listen for changes to update status
+      tbody.querySelectorAll('.map-select').forEach(sel => {
+        sel.addEventListener('change', () => {
+          const td = sel.closest('tr').querySelector('td:last-child');
+          if (sel.value) {
+            td.className = 'matched';
+            td.innerHTML = '<i class="fas fa-check-circle"></i> Mapped';
+          } else {
+            td.className = 'unmatched';
+            td.innerHTML = '<i class="fas fa-minus-circle"></i> Skipped';
+          }
+        });
+      });
+    }
+
+    /* ═════════════════════════════════════════════════
+       BUILD MAPPED DATA
+    ═════════════════════════════════════════════════ */
+    function buildMappedData() {
+      const selects = document.querySelectorAll('#mapping-body .map-select');
+      fieldMapping = {};
+      selects.forEach(sel => {
+        if (sel.value) fieldMapping[sel.value] = sel.dataset.col;
+      });
+
+      mappedOutput = {};
+      for (const row of parsedData.rows) {
+        const stateRaw = String(row[stateColumn] || '').trim().toUpperCase();
+        if (!stateRaw || stateRaw === 'ALL INDIA' || stateRaw === 'TOTAL' || stateRaw === 'GRAND TOTAL') continue;
+        if (!mappedOutput[stateRaw]) mappedOutput[stateRaw] = {};
+        for (const [dashField, uploadCol] of Object.entries(fieldMapping)) {
+          let val = row[uploadCol];
+          if (val === '' || val == null) continue;
+          const num = Number(val);
+          mappedOutput[stateRaw][dashField] = isNaN(num) ? val : num;
+        }
+      }
+      return mappedOutput;
+    }
+
+    /* ═════════════════════════════════════════════════
+       PREVIEW (Step 3)
+    ═════════════════════════════════════════════════ */
+    function buildPreview() {
+      buildMappedData();
+      const states = Object.keys(mappedOutput);
+      const fields = Object.keys(fieldMapping);
+      const year = document.getElementById('data-year').value || '—';
+      const type = document.getElementById('data-type').value;
+
+      document.getElementById('fi-name-3').textContent = `${type} · FY ${year}`;
+      document.getElementById('fi-meta-3').textContent = `${states.length} states · ${fields.length} fields mapped`;
+
+      const head = document.getElementById('preview-head');
+      head.innerHTML = `<th>State</th>` + fields.map(f => `<th>${f}</th>`).join('');
+
+      const body = document.getElementById('preview-body');
+      body.innerHTML = states.map(s => {
+        const cells = fields.map(f => {
+          const v = mappedOutput[s]?.[f];
+          const formatted = v != null && !isNaN(Number(v)) ? Number(v).toLocaleString('en-IN') : (v || '—');
+          return `<td style="text-align:right;font-family:'Newsreader',serif;font-weight:900;">${formatted}</td>`;
+        }).join('');
+        return `<tr><td style="font-weight:900;color:var(--text-dark);">${s}</td>${cells}</tr>`;
+      }).join('');
+    }
+
+    /* ═════════════════════════════════════════════════
+       SAVE (Step 4)
+    ═════════════════════════════════════════════════ */
+    async function saveData() {
+      const type = document.getElementById('data-type').value;
+      const year = document.getElementById('data-year').value;
+      if (!year) { showStatus('Please enter a year.', 'error'); return; }
+      if (Object.keys(mappedOutput).length === 0) { showStatus('No data to save.', 'error'); return; }
+
+      try {
+        await DataStore.save(type, year, mappedOutput);
+        document.getElementById('success-type').textContent = type;
+        document.getElementById('success-year').textContent = year;
+        showStatus(`${type} ${year} data saved successfully! ${Object.keys(mappedOutput).length} states.`);
+        setStep(4);
+        refreshDatasets();
+      } catch (err) {
+        console.error(err);
+        showStatus(`Error saving: ${err.message}`, 'error');
+      }
+    }
+
+    /* ═════════════════════════════════════════════════
+       DATA MANAGER
+    ═════════════════════════════════════════════════ */
+    async function refreshDatasets() {
+      try {
+        const summary = await DataStore.getSummary();
+        const grid = document.getElementById('dataset-grid');
+        const empty = document.getElementById('empty-state');
+
+        if (!summary.length) {
+          grid.style.display = 'none';
+          empty.style.display = '';
+          return;
+        }
+
+        empty.style.display = 'none';
+        grid.style.display = '';
+        grid.innerHTML = summary.map(d => `
+          <div class="ds-card">
+            <div class="ds-type"><i class="fas fa-building-columns"></i> ${d.type}</div>
+            <div class="ds-year">FY ${d.year}</div>
+            <div class="ds-meta">${d.states} states · Uploaded ${d.uploadedAt}</div>
+            <div class="ds-actions">
+              <button class="btn btn-danger btn-sm" onclick="deleteDataset('${d.id}')">
+                <i class="fas fa-trash"></i> Remove
+              </button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function deleteDataset(id) {
+      if (!confirm(`Delete dataset "${id}"? This cannot be undone.`)) return;
+      await DataStore.remove(id);
+      showStatus(`Dataset "${id}" deleted.`);
+      refreshDatasets();
+    }
+
+    /* ═════════════════════════════════════════════════
+       EXPORT / IMPORT
+    ═════════════════════════════════════════════════ */
+    document.getElementById('btn-export-all').addEventListener('click', async () => {
+      try {
+        const json = await DataStore.exportAll();
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `nafscob_dashboard_data_${Date.now()}.json`;
+        a.click(); URL.revokeObjectURL(url);
+        showStatus('Data exported successfully!');
+      } catch (err) {
+        showStatus(`Export failed: ${err.message}`, 'error');
+      }
+    });
+
+    const importFileInput = document.getElementById('import-file-input');
+    document.getElementById('btn-import-data').addEventListener('click', () => importFileInput.click());
+    importFileInput.addEventListener('change', async () => {
+      if (!importFileInput.files.length) return;
+      try {
+        const text = await importFileInput.files[0].text();
+        await DataStore.importAll(text);
+        showStatus('Data imported successfully!');
+        refreshDatasets();
+      } catch (err) {
+        showStatus(`Import failed: ${err.message}`, 'error');
+      }
+      importFileInput.value = '';
+    });
+
+    document.getElementById('btn-clear-all').addEventListener('click', async () => {
+      if (!confirm('Delete ALL uploaded datasets? This cannot be undone.')) return;
+      await DataStore.clear();
+      showStatus('All datasets cleared.');
+      refreshDatasets();
+    });
+
+    /* ═════════════════════════════════════════════════
+       BUTTON WIRING
+    ═════════════════════════════════════════════════ */
+    document.getElementById('btn-back-1').addEventListener('click', () => setStep(1));
+    document.getElementById('btn-next-2').addEventListener('click', () => { buildPreview(); setStep(3); });
+    document.getElementById('btn-back-2').addEventListener('click', () => setStep(2));
+    document.getElementById('btn-save').addEventListener('click', saveData);
+    document.getElementById('btn-upload-more').addEventListener('click', () => {
+      parsedData = null; fieldMapping = {}; mappedOutput = {};
+      fileInput.value = '';
+      setStep(1);
+    });
+
+    /* ═════════════════════════════════════════════════
+       TAB SWITCHING
+    ═════════════════════════════════════════════════ */
+    function switchTab(tab) {
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.getElementById('tab-content-' + tab).classList.add('active');
+    }
+
+    /* ═════════════════════════════════════════════════
+       PDF CONVERTER ENGINE
+    ═════════════════════════════════════════════════ */
+    let pdfConvertedData = null; // { columns:[], rows:[{}], type:'', year:'' }
+    let pdfLib = null;
+
+    async function loadPdfJs() {
+      if (pdfLib) return pdfLib;
+      const mod = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+      mod.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+      pdfLib = mod;
+      return mod;
+    }
+
+    // ── PDF upload zone ──
+    const pdfUploadZone = document.getElementById('pdf-upload-zone');
+    const pdfFileInput = document.getElementById('pdf-file-input');
+    const btnConvert = document.getElementById('btn-convert-pdf');
+    let pdfFileRef = null;
+
+    pdfUploadZone.addEventListener('click', () => pdfFileInput.click());
+    pdfUploadZone.addEventListener('dragover', e => { e.preventDefault(); pdfUploadZone.classList.add('dragover'); });
+    pdfUploadZone.addEventListener('dragleave', () => pdfUploadZone.classList.remove('dragover'));
+    pdfUploadZone.addEventListener('drop', e => {
+      e.preventDefault(); pdfUploadZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) selectPdf(e.dataTransfer.files[0]);
+    });
+    pdfFileInput.addEventListener('change', () => { if (pdfFileInput.files.length) selectPdf(pdfFileInput.files[0]); });
+
+    function selectPdf(file) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        showStatus('Please select a PDF file.', 'error'); return;
+      }
+      pdfFileRef = file;
+      btnConvert.disabled = false;
+      // Auto-detect type from filename
+      const n = file.name.toLowerCase();
+      const typeSel = document.getElementById('pdf-type');
+      if (n.includes('bdc') || n.includes('dccb')) typeSel.value = 'DCCB';
+      else if (n.includes('scb') || n.includes('stcb')) typeSel.value = 'STCB';
+      else if (n.includes('pacs')) typeSel.value = 'PACS';
+      else typeSel.value = 'auto';
+
+      pdfUploadZone.querySelector('h4').textContent = file.name;
+      pdfUploadZone.querySelector('p').textContent = `${(file.size / 1024).toFixed(0)} KB — ready to convert`;
+      showStatus(`PDF "${file.name}" selected. Click "Convert" to extract tables.`);
+    }
+
+    // ── Logging ──
+    function pdfLog(msg, cls = '') {
+      const log = document.getElementById('pdf-log');
+      const span = document.createElement('div');
+      span.className = cls;
+      span.textContent = msg;
+      log.appendChild(span);
+      log.scrollTop = log.scrollHeight;
+    }
+    function pdfProgress(pct) {
+      document.getElementById('pdf-progress-bar').style.width = pct + '%';
+    }
+
+    // ── Text extraction from PDF ──
+    async function extractPdfPages(arrayBuffer) {
+      const pdfjsLib = await loadPdfJs();
+      const doc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pages = [];
+      for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        // Group text items by Y position to reconstruct rows
+        const items = content.items.filter(it => it.str.trim());
+        pages.push({ pageNum: i, items, fullText: items.map(it => it.str).join(' ') });
+        pdfProgress(Math.round((i / doc.numPages) * 60));
+      }
+      return { pages, numPages: doc.numPages };
+    }
+
+    // ── Reconstruct table rows from positioned text ──
+    function itemsToRows(items) {
+      if (!items.length) return [];
+      // Group by Y-coordinate (with tolerance)
+      const yMap = new Map();
+      for (const it of items) {
+        const y = Math.round(it.transform[5] * 2) / 2; // round to 0.5
+        let bestY = null, bestDist = 4;
+        for (const yk of yMap.keys()) {
+          const d = Math.abs(yk - y);
+          if (d < bestDist) { bestDist = d; bestY = yk; }
+        }
+        const useY = bestY !== null ? bestY : y;
+        if (!yMap.has(useY)) yMap.set(useY, []);
+        yMap.get(useY).push({ x: it.transform[4], text: it.str.trim(), width: it.width || 0 });
+      }
+      // Sort by Y descending (PDF y-axis is bottom-up)
+      const rows = Array.from(yMap.entries())
+        .sort((a, b) => b[0] - a[0])
+        .map(([y, cells]) => {
+          cells.sort((a, b) => a.x - b.x);
+          return cells;
+        });
+      return rows;
+    }
+
+    // ── Merge adjacent cells in a row into columns ──
+    function rowToColumns(cells, numCols) {
+      if (!cells.length) return [];
+      // If we know expected numCols, try to bin by X position
+      // Simple approach: merge cells that are very close together
+      const merged = [];
+      let buf = cells[0].text;
+      for (let i = 1; i < cells.length; i++) {
+        const gap = cells[i].x - (cells[i-1].x + cells[i-1].width);
+        if (gap < 5) {
+          buf += ' ' + cells[i].text;
+        } else {
+          merged.push(buf);
+          buf = cells[i].text;
+        }
+      }
+      merged.push(buf);
+      return merged;
+    }
+
+    // ── Core parsing heuristics (from notebooks) ──
+    function cleanStateName(raw) {
+      let s = String(raw || '').replace(/\n/g, ' ');
+      s = s.replace(/^\d+\.\s*/, '').replace(/[*:]+/g, '').trim();
+      return s.replace(/\s+/g, ' ').toUpperCase();
+    }
+
+    function safeNumeric(val) {
+      let s = String(val || '').replace(/,/g, '').trim();
+      if (!s) return null;
+      // Handle (123) negatives
+      if (/^\(\s*[\d.]+\s*\)$/.test(s)) s = '-' + s.replace(/[()\s]/g, '');
+      if (s.endsWith('%')) s = s.slice(0, -1);
+      const n = parseFloat(s);
+      return isFinite(n) ? n : s;
+    }
+
+    function isColNumberRow(cells) {
+      const vals = cells.filter(c => c.trim());
+      if (!vals.length) return false;
+      return vals.every(v => /^\d+[\w\s()to+\-]*$/.test(v));
+    }
+
+    const KNOWN_STATES = [
+      'ANDHRA PRADESH','ARUNACHAL PRADESH','ASSAM','BIHAR','CHHATTISGARH','GOA','GUJARAT',
+      'HARYANA','HIMACHAL PRADESH','JAMMU & KASHMIR','JAMMU AND KASHMIR','JHARKHAND','KARNATAKA',
+      'KERALA','MADHYA PRADESH','MAHARASHTRA','MANIPUR','MEGHALAYA','MIZORAM','NAGALAND',
+      'ODISHA','ORISSA','PUNJAB','RAJASTHAN','SIKKIM','TAMIL NADU','TELANGANA','TRIPURA',
+      'UTTAR PRADESH','UTTARAKHAND','WEST BENGAL','ANDAMAN','CHANDIGARH','DADRA','DAMAN',
+      'DELHI','LAKSHADWEEP','PUDUCHERRY','PONDICHERRY','LADAKH'
+    ];
+
+    function looksLikeState(text) {
+      const up = text.toUpperCase();
+      return KNOWN_STATES.some(s => up.includes(s));
+    }
+
+    // ── DCCB-specific detection (from DCCB_PDF_to_Excel.ipynb) ──
+    function detectTableId(text) {
+      const m = text.match(/TABLE[-\s]*(X{0,3}(?:IX|IV|V?I{0,3})[A-Z]?(?:\s*\([A-Z]\))?)/i);
+      return m ? 'TABLE-' + m[1].replace(/\s+/g, '').toUpperCase() : null;
+    }
+
+    function isStatewiseConsolidatedPage(text) {
+      const up = text.toUpperCase();
+      const hasConsolidated = up.includes('STATE WISE AND CONSOLIDATED') || up.includes('ALL INDIA POSITION');
+      const hasTable = /TABLE[-\s]+[IVXLC]+/i.test(text);
+      const hasState = ['ANDHRA PRADESH','BIHAR','GUJARAT','KARNATAKA','MAHARASHTRA','UTTAR PRADESH']
+        .some(s => up.includes(s));
+      return hasConsolidated && hasTable && hasState;
+    }
+
+    function isDirectoryFormatPage(text) {
+      return text.includes('Main Items') &&
+        ['WORKING CAPITAL','TOTAL LOANS','PAID UP CAPITAL','TOTAL DEPOSITS']
+          .some(k => text.includes(k));
+    }
+
+    // ── Detect year from page text ──
+    function detectYearFromText(text) {
+      const m = text.match(/(\d{4})\s*[-–]\s*(\d{4})/);
+      return m ? `${m[1]}-${m[2]}` : null;
+    }
+
+    function resolvePdfFormatType() {
+      let formatType = document.getElementById('pdf-type').value;
+      if (formatType === 'auto') {
+        const n = pdfFileRef.name.toLowerCase();
+        if (n.includes('bdc') || n.includes('dccb')) formatType = 'DCCB';
+        else if (n.includes('scb') || n.includes('stcb')) formatType = 'STCB';
+        else if (n.includes('pacs')) formatType = 'PACS';
+        else formatType = 'DCCB';
+      }
+      return formatType;
+    }
+
+    async function convertPdfInBrowser(formatType) {
+      pdfLog('Extracting tables in your browser (no server required)...', 'log-head');
+      pdfProgress(10);
+      const arrayBuffer = await pdfFileRef.arrayBuffer();
+      const { pages, numPages } = await extractPdfPages(arrayBuffer);
+      pdfLog(`Parsed ${numPages} pages`, 'log-info');
+
+      let records = [];
+      if (formatType === 'DCCB') {
+        records = await parseDCCB(pages, numPages);
+      } else {
+        records = await parseGeneric(pages, numPages, formatType);
+      }
+
+      if (!records.length) {
+        throw new Error('No tables could be extracted from this PDF. Try a text-based NAFSCOB report PDF.');
+      }
+
+      const columns = Array.from(new Set(records.flatMap(r => Object.keys(r))));
+      let year = '';
+      for (const pg of pages) {
+        year = detectYearFromText(pg.fullText || '');
+        if (year) break;
+      }
+
+      pdfConvertedData = { columns, rows: records, type: formatType, year };
+      pdfProgress(100);
+      pdfLog(`✅ Extracted ${records.length} rows across ${columns.length} columns`, 'log-ok');
+      showPdfPreview();
+      showStatus(`${formatType} PDF converted — download Excel or click "Use in Upload Flow".`);
+    }
+
+    async function convertPdfViaServer(formatType) {
+      pdfLog(`Sending ${pdfFileRef.name} to Python conversion server...`, 'log-head');
+      pdfProgress(30);
+      const formData = new FormData();
+      formData.append('file', pdfFileRef);
+      formData.append('format', formatType);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120000);
+      const response = await fetch('/api/convert-pdf', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      pdfProgress(80);
+      if (!response.ok) {
+        let errMsg = 'Server error';
+        try { const errObj = await response.json(); errMsg = errObj.error || errMsg; } catch (_) {}
+        throw new Error(errMsg);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      let filename = `${formatType}_Extracted_${pdfFileRef.name}.xlsx`;
+      const filenameHeader = response.headers.get('Content-Disposition');
+      if (filenameHeader && filenameHeader.includes('filename=')) {
+        filename = filenameHeader.split('filename=')[1].replace(/"/g, '');
+      }
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      pdfProgress(100);
+      pdfLog('✅ Server conversion successful — Excel downloaded', 'log-ok');
+      pdfLog('Upload the downloaded Excel in the "Upload Structured Data" tab.', 'log-info');
+      showStatus(`PDF converted via server: ${filename}`);
+    }
+
+    // ── Main converter: try Python server, fallback to in-browser extraction ──
+    btnConvert.addEventListener('click', async () => {
+      if (!pdfFileRef) return;
+      btnConvert.disabled = true;
+      pdfConvertedData = null;
+      document.getElementById('pdf-progress-section').style.display = '';
+      document.getElementById('pdf-result-section').style.display = 'none';
+      document.getElementById('pdf-log').innerHTML = '';
+
+      const formatType = resolvePdfFormatType();
+
+      try {
+        await convertPdfViaServer(formatType);
+      } catch (serverErr) {
+        console.warn('Server conversion unavailable:', serverErr);
+        pdfLog(`Server unavailable (${serverErr.message}) — switching to browser extraction...`, 'log-warn');
+        try {
+          await convertPdfInBrowser(formatType);
+        } catch (browserErr) {
+          console.error(browserErr);
+          pdfLog(`✗ Error: ${browserErr.message}`, 'log-warn');
+          showStatus(`PDF conversion failed: ${browserErr.message}`, 'error');
+        }
+      }
+      btnConvert.disabled = false;
+    });
+
+    // ── DCCB Parser ──
+    async function parseDCCB(pages, numPages) {
+      const records = [];
+      let tableCount = 0;
+
+      for (let i = 0; i < pages.length; i++) {
+        const pg = pages[i];
+        const text = pg.fullText;
+        pdfProgress(60 + Math.round((i / pages.length) * 35));
+
+        // Check for statewise consolidated page
+        if (isStatewiseConsolidatedPage(text)) {
+          const tableId = detectTableId(text) || `TABLE-P${pg.pageNum}`;
+          const rows = itemsToRows(pg.items);
+          if (rows.length < 4) continue;
+
+          // Find column-number row
+          let numRowIdx = -1;
+          for (let ri = 0; ri < Math.min(rows.length, 8); ri++) {
+            const cells = rowToColumns(rows[ri], 0);
+            if (isColNumberRow(cells)) { numRowIdx = ri; break; }
+          }
+
+          // Build header
+          const headerEnd = numRowIdx > 0 ? numRowIdx : 2;
+          const dataStart = numRowIdx > 0 ? numRowIdx + 1 : 3;
+
+          // Collect header texts
+          let headerCols = [];
+          if (numRowIdx > 0) {
+            // Use the row just before number row as column names
+            for (let hi = 0; hi < headerEnd; hi++) {
+              const cells = rowToColumns(rows[hi], 0);
+              if (headerCols.length === 0) headerCols = cells.map(c => c);
+              else {
+                for (let ci = 0; ci < cells.length && ci < headerCols.length; ci++) {
+                  if (cells[ci] && !headerCols[ci].includes(cells[ci])) {
+                    headerCols[ci] += ' | ' + cells[ci];
+                  }
+                }
+              }
+            }
+          }
+
+          // Extract data rows
+          let statesFound = 0;
+          for (let ri = dataStart; ri < rows.length; ri++) {
+            const cells = rowToColumns(rows[ri], 0);
+            if (!cells.length) continue;
+            const firstCell = cells[0].trim();
+            if (!firstCell) continue;
+            const state = cleanStateName(firstCell);
+            if (!state || state.length < 2) continue;
+
+            const rec = { 'State': state, 'Table_ID': tableId };
+            for (let ci = 1; ci < cells.length; ci++) {
+              const colName = headerCols[ci] || `Col_${ci}`;
+              rec[colName] = safeNumeric(cells[ci]);
+            }
+            records.push(rec);
+            statesFound++;
+          }
+
+          if (statesFound > 0) {
+            tableCount++;
+            pdfLog(`  ✓ ${tableId} — ${statesFound} states extracted`, 'log-ok');
+          }
+        }
+
+        // Directory format page
+        else if (isDirectoryFormatPage(text)) {
+          const rows = itemsToRows(pg.items);
+          if (rows.length < 3) continue;
+
+          // First row is usually state name
+          const stateName = cleanStateName(rowToColumns(rows[0], 0).join(' '));
+
+          // Find indicators and values
+          const indicators = [];
+          const values = [];
+
+          for (let ri = 1; ri < rows.length; ri++) {
+            const cells = rowToColumns(rows[ri], 0);
+            if (cells.length >= 2) {
+              const indicator = cells[0].replace(/^\d+\.\s*/, '').trim();
+              if (indicator && indicator.length > 2) {
+                indicators.push(indicator);
+                values.push(safeNumeric(cells[cells.length - 1]));
+              }
+            }
+          }
+
+          if (indicators.length > 0) {
+            const rec = { 'State': stateName };
+            for (let k = 0; k < indicators.length; k++) {
+              rec[indicators[k]] = values[k];
+            }
+            records.push(rec);
+            tableCount++;
+            pdfLog(`  ✓ Directory: ${stateName} — ${indicators.length} indicators`, 'log-ok');
+          }
+        }
+      }
+
+      pdfLog(`\n📊 DCCB extraction: ${tableCount} tables, ${records.length} total rows`, 'log-head');
+      return records;
+    }
+
+    // ── Generic Parser (STCB / PACS) ──
+    async function parseGeneric(pages, numPages, type) {
+      const allRecords = [];
+      let tableCount = 0;
+
+      for (let i = 0; i < pages.length; i++) {
+        const pg = pages[i];
+        pdfProgress(60 + Math.round((i / pages.length) * 35));
+
+        const rows = itemsToRows(pg.items);
+        if (rows.length < 3) continue;
+
+        // Try to detect header row — look for state names or common header words
+        let headerIdx = -1;
+        let dataStartIdx = -1;
+
+        for (let ri = 0; ri < Math.min(rows.length, 5); ri++) {
+          const cells = rowToColumns(rows[ri], 0);
+          const joined = cells.join(' ').toUpperCase();
+          if (joined.includes('NAME OF') || joined.includes('STATE') ||
+              joined.includes('PARTICULARS') || joined.includes('TOTAL NO')) {
+            headerIdx = ri;
+            break;
+          }
+        }
+
+        if (headerIdx < 0) {
+          // Check if any row has state names — that means data rows
+          for (let ri = 0; ri < Math.min(rows.length, 6); ri++) {
+            const cells = rowToColumns(rows[ri], 0);
+            if (cells.length > 0 && looksLikeState(cells[0])) {
+              dataStartIdx = ri;
+              break;
+            }
+          }
+          if (dataStartIdx < 0) continue;
+        }
+
+        // Build header
+        const headerCells = headerIdx >= 0 ? rowToColumns(rows[headerIdx], 0) : [];
+
+        // Find data start (skip column-number rows)
+        if (dataStartIdx < 0) {
+          dataStartIdx = headerIdx + 1;
+          // Skip column number rows
+          while (dataStartIdx < rows.length) {
+            const cells = rowToColumns(rows[dataStartIdx], 0);
+            if (isColNumberRow(cells)) { dataStartIdx++; continue; }
+            break;
+          }
+        }
+
+        // Extract data
+        let pageStates = 0;
+        for (let ri = dataStartIdx; ri < rows.length; ri++) {
+          const cells = rowToColumns(rows[ri], 0);
+          if (!cells.length) continue;
+          const firstCell = cells[0].trim();
+          if (!firstCell || firstCell.length < 2) continue;
+
+          // Skip rows that look like subtotals or footnotes
+          const up = firstCell.toUpperCase();
+          if (up.includes('SOURCE') || up.includes('NOTE') || up.includes('CONTD')) continue;
+
+          const state = cleanStateName(firstCell);
+          const rec = { 'Entity': state };
+
+          for (let ci = 1; ci < cells.length; ci++) {
+            const colName = ci < headerCells.length ? headerCells[ci] : `Col_${ci}`;
+            if (colName) rec[colName] = safeNumeric(cells[ci]);
+          }
+          allRecords.push(rec);
+          pageStates++;
+        }
+
+        if (pageStates > 0) {
+          tableCount++;
+          pdfLog(`  ✓ Page ${pg.pageNum}: ${pageStates} rows extracted`, 'log-ok');
+        }
+      }
+
+      pdfLog(`\n📊 ${type} extraction: ${tableCount} pages with tables, ${allRecords.length} total rows`, 'log-head');
+      return allRecords;
+    }
+
+    // ── Preview extracted data ──
+    function showPdfPreview() {
+      if (!pdfConvertedData) return;
+      document.getElementById('pdf-result-section').style.display = '';
+
+      const { columns, rows, type, year } = pdfConvertedData;
+      document.getElementById('pdf-result-name').textContent = `${type} Data — ${year || 'Year unknown'}`;
+      document.getElementById('pdf-result-meta').textContent =
+        `${rows.length} rows · ${columns.length} columns · Extracted from ${pdfFileRef?.name || 'PDF'}`;
+      document.getElementById('pdf-extract-stats').textContent =
+        `${rows.length} records · ${columns.length} fields`;
+
+      const fmtLabel = document.getElementById('pdf-output-format').value === 'csv' ? 'CSV' : 'Excel';
+      document.getElementById('download-format-label').textContent = fmtLabel;
+
+      // Build preview table (first 50 rows, first 10 cols)
+      const showCols = columns.slice(0, 10);
+      const showRows = rows.slice(0, 50);
+
+      document.getElementById('pdf-preview-head').innerHTML =
+        showCols.map(c => `<th>${c}</th>`).join('') +
+        (columns.length > 10 ? `<th style="color:var(--amber);">+${columns.length - 10} more</th>` : '');
+
+      document.getElementById('pdf-preview-body').innerHTML =
+        showRows.map(r => '<tr>' +
+          showCols.map(c => {
+            const v = r[c];
+            const formatted = v != null && typeof v === 'number' ? v.toLocaleString('en-IN') : (v || '—');
+            return `<td style="text-align:${typeof v === 'number' ? 'right' : 'left'};">${formatted}</td>`;
+          }).join('') +
+          (columns.length > 10 ? '<td>…</td>' : '') +
+        '</tr>').join('');
+    }
+
+    // ── Download converted file ──
+    document.getElementById('btn-download-converted').addEventListener('click', () => {
+      if (!pdfConvertedData) return;
+      const { columns, rows, type, year } = pdfConvertedData;
+      const fmt = document.getElementById('pdf-output-format').value;
+      const fileName = `${type}_${year || 'data'}_extracted`;
+
+      // Build SheetJS workbook
+      const wsData = [columns, ...rows.map(r => columns.map(c => r[c] ?? ''))];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, `${type}_Data`);
+
+      if (fmt === 'csv') {
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = fileName + '.csv';
+        a.click(); URL.revokeObjectURL(url);
+      } else {
+        XLSX.writeFile(wb, fileName + '.xlsx');
+      }
+
+      showStatus(`${fmt.toUpperCase()} file downloaded: ${fileName}.${fmt}`);
+    });
+
+    // ── Use converted data in upload flow ──
+    document.getElementById('btn-use-converted').addEventListener('click', () => {
+      if (!pdfConvertedData) return;
+      // Switch to upload tab and inject data
+      const { columns, rows, type, year } = pdfConvertedData;
+      parsedData = { columns, rows, fileName: `${type}_${year}_extracted.xlsx`, fileSize: 0 };
+      document.getElementById('data-type').value = type;
+      document.getElementById('data-year').value = year ? year.split('-').pop() || year : '';
+      switchTab('upload');
+      buildMappingStep();
+      setStep(2);
+      showStatus(`Extracted data loaded into upload flow. Map fields and save.`);
+    });
+
+    // ── Update format label on change ──
+    document.getElementById('pdf-output-format').addEventListener('change', () => {
+      const fmt = document.getElementById('pdf-output-format').value;
+      document.getElementById('download-format-label').textContent = fmt === 'csv' ? 'CSV' : 'Excel';
+    });
+
+    /* ═════════════════════════════════════════════════
+       INIT
+    ═════════════════════════════════════════════════ */
+    refreshDatasets();
+  </script>
+</body>
+
+</html>
