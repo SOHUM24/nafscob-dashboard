@@ -7,6 +7,11 @@ from flask import Flask, request, send_file, send_from_directory, jsonify
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'}), 200
+
+
 @app.route('/')
 def index():
     return app.send_static_file('index.html')
